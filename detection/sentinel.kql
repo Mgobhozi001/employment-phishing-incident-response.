@@ -1,0 +1,5 @@
+EmailEvents
+| where SenderFromAddress endswith "@gmail.com"
+| where Subject contains "resume" or Subject contains "job"
+| where Body has_any ("WhatsApp","Identity document","clearance","ITC")
+| summarize count() by SenderFromAddress, Subject
