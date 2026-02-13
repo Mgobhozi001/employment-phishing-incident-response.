@@ -1,2 +1,152 @@
-# employment-phishing-incident-response.
-Real-world SOC case study analyzing an employment phishing attack with identity harvesting intent, including email header forensics, MITRE mapping, IOCs, and SIEM detections. 
+Attackerd to harvest sensitive personal documents (ID, police clearance, ITC report) using social engineering and WhatsApp onboarding.
+
+The investigation covers:
+
+- Email header analysis
+- Infrastructure attribution
+- Social engineering indicators
+- MITRE mapping
+- Indicators of Compromise (IOCs)
+- Detection engineering
+- Incident response recommendations
+
+No personal data was shared.
+
+---
+
+## Executive Summary
+
+An unsolicited job offer email was received claiming to originate from a recruitment consultancy.  
+The email requested highly sensitive documentation via WhatsApp under artificial urgency.
+
+Header analysis confirmed the message originated from consumer Gmail infrastructure rather than a corporate mail system.  
+Content analysis revealed multiple employment-scam indicators including pre-interview job offering, urgency pressure, and document harvesting.
+
+The incident was classified as:
+
+> **Employment Phishing with Identity Harvesting Intent**
+
+---
+
+## Business Impact
+
+If successful, the attacker would likely have obtained:
+
+- Government ID
+- Credit profile (ITC)
+- Qualifications
+- Police clearance
+
+This enables:
+
+- Identity fraud  
+- Loan / SIM swap fraud  
+- Account takeover  
+- Synthetic identity creation  
+
+---
+
+## Kill Chain Mapping
+
+Framework used: MITRE ATT&CK
+
+| Stage | Technique |
+|------|-----------|
+| Initial Access | Phishing (Employment lure) |
+| Execution | Manual Gmail sending |
+| Collection | Sensitive Personal Data |
+| Defense Evasion | Trusted webmail infrastructure |
+| Impact | Identity theft |
+
+---
+
+## Technical Analysis
+
+### Sender
+attainingconsultancyportia@gmail.com
+
+Consumer webmail account (not corporate).
+
+---
+
+### Source Infrastructure
+mail-sor-f41.google.com IP: 209.85.220.41
+
+Confirms message originated directly from Gmail infrastructure.
+
+---
+
+### Email Authentication
+
+| Control | Result |
+|--------|--------|
+| SPF | PASS |
+| DKIM | PASS |
+| DMARC | PASS |
+
+Important SOC note:
+
+These results only confirm that Gmail authenticated itself.  
+They do **not** validate the legitimacy of the human sender or organization.
+
+---
+
+## Social Engineering Indicators
+
+- Job offer issued before interview
+- WhatsApp onboarding
+- Request for ID + ITC + police clearance
+- Unrealistic “3–6 hour” clearance turnaround
+- Artificial urgency deadline
+- No corporate domain
+- No company registration details
+- Generic greeting (“Dear Applicant”)
+
+---
+
+## Indicators of Compromise (IOCs)
+Sender Email: attainingconsultancyportia@gmail.com WhatsApp Number: 065 515 0058 Subject: Contact via the resume for "Sphamandla Mgobhozi" Source IP: 209.85.220.41
+
+---
+
+## Email Flow Diagram
+Attacker Gmail Account | v Google SMTP (209.85.220.41) | v Gmail MX Servers | v Victim Inbox | v WhatsApp Data Harvesting Attempt
+
+---
+
+## Detection Engineering
+
+### Splunk SPL
+
+```spl
+index=email
+| where like(sender,"%@gmail.com")
+| search ("job offer" OR "employment" OR "resume" OR "interview")
+| search ("whatsapp" OR "identity document" OR "clearance" OR "ITC")
+| stats count by sender, subject, recipient58
+
+Microsoft Sentinel (KQL)
+
+EmailEvents
+| where SenderFromAddress endswith "@gmail.com"
+| where Subject contains "resume" or Subject contains "job"
+| where Body has_any ("WhatsApp","Identity document","clearance","ITC")
+| summarize count() by SenderFromAddress, Subject
+
+Incident Response Actions
+1.Block sender address
+2.Block WhatsApp number
+3.Report Gmail account
+4.Educate user on employment scams
+5.Recommend credit bureau fraud alert (preventive)
+
+Key SOC Takeaways
+•TrustedM/DMARC passing does NOT equal legitimacy.
+•Trusted webmail infrastructure is frequently abused.
+•Employment scams often avoid malicious links and rely purely on human manipulation.
+•Detection requires content correlation + sender reputation.
+
+Author
+Sphamandla Mgobhozi
+Aspiring SOC Analyst
+South Africa
