@@ -84,7 +84,13 @@ Framework used: MITRE ATT&CK
 
 > ⚠️ **SOC Key Takeaway:** All 5 authentication controls passed. This email would bypass most automated phishing filters. Detection requires content correlation + sender reputation analysis, NOT authentication results.
 
+Header Forensics
 ---
+•Delivery time analysis
+•ARC chain explanation
+•DMARC p=NONE weakness exploitation
+•Message-ID browser fingerprint
+•No intermediary relay confirmation
 
 ## Technical Analysis
 
@@ -127,6 +133,8 @@ They do **not** validate the legitimacy of the human sender or organization.
 - No corporate domain
 - No company registration details
 - Generic greeting (“Dear Applicant”)
+- name inconsistency (Porta vs Portia)
+- This is a two-stage attack: Stage 1 is document harvesting, Stage 2 is document fraud facilitation
 
 ---
 
@@ -150,21 +158,34 @@ Attacker Gmail Account | v Google SMTP (209.85.220.41) | v Gmail MX Servers | v 
 ## Detection Engineering
 
 ### Splunk SPL
-
-```spl
-index=email
-| where like(sender,"%@gmail.com")
-| search ("job offer" OR "employment" OR "resume" OR "interview")
-| search ("whatsapp" OR "identity document" OR "clearance" OR "ITC")
-| stats count by sender, subject, recipient58
-
-Microsoft Sentinel (KQL)
-
+Microsoft Sentinel (kql)
 EmailEvents
 | where SenderFromAddress endswith "@gmail.com"
-| where Subject contains "resume" or Subject contains "job"
-| where Body has_any ("WhatsApp","Identity document","clearance","ITC")
-| summarize count() by SenderFromAddress, Subject
+| where SenderMailFromDomain != RecipientEmailAddress split('@')[1]
+| where Subject contains "resume" or Subject contains "cv"
+| where EmailBody has_any (
+    "WhatsApp",
+    "identity document",
+    "clearance certificate",
+    "ITC report",
+    "police clearance",
+    "compulsory",
+    "compassary"
+  )
+| where EmailBody has_any (
+    "forward",
+    "send documents",
+    "today",
+    "before 10:00",
+    "urgently"
+  )
+| extend RiskScore = case(
+    EmailBody has "ITC" and EmailBody has "WhatsApp", "HIGH",
+    EmailBody has "identity document", "MEDIUM",
+    "LOW"
+  )
+| where RiskScore == "HIGH"
+| summarize count() by SenderFromAddress, Subject, RiskScore
 
 Incident Response Actions
 1.Block sender address
