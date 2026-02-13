@@ -1,4 +1,9 @@
-Attackerd to harvest sensitive personal documents (ID, police clearance, ITC report) using social engineering and WhatsApp onboarding.
+# 🛡️ SOC Case Study — Employment Phishing & Identity Harvesting (South Africa)
+
+## Overview
+
+This case study documents a real-world employment phishing attempt targeting a job seeker.  
+The attacker impersonated a recruitment consultancy and attempted to harvest sensitive personal documents (ID, police clearance, ITC report) using social engineering and WhatsApp onboarding.
 
 The investigation covers:
 
