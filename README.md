@@ -110,7 +110,14 @@ They do **not** validate the legitimacy of the human sender or organization.
 ---
 
 ## Indicators of Compromise (IOCs)
-Sender Email: attainingconsultancyportia@gmail.com WhatsApp Number: 065 515 0058 Subject: Contact via the resume for "Sphamandla Mgobhozi" Source IP: 209.85.220.41
+Sender Email: attainingconsultancyportia@gmail.com WhatsApp Number: 065 515 0058 Subject: Contact via the resume for "Sphamandla Mgobhozi" Source IP: 209.85.220.41Message-ID:     CABj7Te-dJ7-4k-E6-3QDcFrKVuzvBGC2NMVXx9qcBDbzip989A@mail.gmail.com
+Sending IP:     209.85.220.41
+Sending Host:   mail-sor-f41.google.com
+Sent timestamp: 2026-02-13T10:21:27+0200
+Delivery time:  13 seconds (direct Gmail-to-Gmail, no relay)
+Interface used: Gmail Web (CA prefix in Message-ID)
+Claimed address: Eastland Office Park, Bentel Ave, Boksburg, 1459
+Claimed company: Attaining Consultancy
 
 ---
 
