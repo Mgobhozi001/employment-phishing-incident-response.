@@ -84,13 +84,48 @@ Framework used: MITRE ATT&CK
 
 > ⚠️ **SOC Key Takeaway:** All 5 authentication controls passed. This email would bypass most automated phishing filters. Detection requires content correlation + sender reputation analysis, NOT authentication results.
 
-Header Forensics
----
-•Delivery time analysis
-•ARC chain explanation
-•DMARC p=NONE weakness exploitation
-•Message-ID browser fingerprint
-•No intermediary relay confirmation
+## Header Forensics
+
+### Delivery Time Analysis
+The message was sent at `2026-02-13T10:21:27+0200` and delivered at 
+`2026-02-13T00:21:40-0800 (PST)` — a total transit time of **13 seconds**.
+This confirms direct Gmail-to-Gmail delivery with no intermediate relay or 
+forwarding infrastructure. The 10:21 AM Friday send time is deliberate — 
+start of a work day with a Saturday 10:00 AM deadline creates a sub-24-hour 
+pressure window.
+
+### ARC Chain Analysis
+The header shows two ARC seals (`i=1` and `i=2`), representing two Google 
+mail handling hops during delivery. Both seals pass, confirming the message 
+was not tampered with in transit. ARC chains become critical when 
+investigating forwarded emails where DMARC alignment might fail — in this 
+case the clean chain ironically increases perceived legitimacy to automated filters.
+
+### DMARC p=NONE Exploitation
+The DMARC record for `gmail.com` is set to `p=NONE` with `sp=QUARANTINE`.
+This means receiving mail servers are instructed to **take no enforcement 
+action** — the policy is monitoring-only. Even if a DMARC check had failed, 
+no automatic quarantine or rejection would have occurred. The attacker 
+deliberately chose Gmail because this weakness ensures delivery regardless 
+of authentication anomalies.
+
+### Message-ID Browser Fingerprint
+```
+Message-ID: CABj7Te-dJ7-4k-E6-3QDcFrKVuzvBGC2NMVXx9qcBDbzip989A@mail.gmail.com
+```
+The `CA` prefix in Gmail Message-IDs indicates composition via **Gmail web 
+browser interface** (not mobile app or third-party client). This suggests 
+the attacker used a desktop or laptop to compose and send — a deliberate, 
+planned attack rather than a mobile opportunistic one.
+
+### No Intermediary Relay
+The received chain shows a single hop from `mail-sor-f41.google.com` 
+(`209.85.220.41`) directly to `mx.google.com`. The `sor` designation stands 
+for **Sender Outbound Relay** — Gmail's standard outbound infrastructure. 
+No VPN, proxy, or third-party relay was used. This means Google retains 
+full logs of this account including registration details, linked phone 
+number, and device fingerprint — making this attackers reportable and 
+potentially traceable.
 
 ## Technical Analysis
 
@@ -139,25 +174,71 @@ They do **not** validate the legitimacy of the human sender or organization.
 ---
 
 ## Indicators of Compromise (IOCs)
-Sender Email: attainingconsultancyportia@gmail.com WhatsApp Number: 065 515 0058 Subject: Contact via the resume for "Sphamandla Mgobhozi" Source IP: 209.85.220.41Message-ID:     CABj7Te-dJ7-4k-E6-3QDcFrKVuzvBGC2NMVXx9qcBDbzip989A@mail.gmail.com
-Sending IP:     209.85.220.41
-Sending Host:   mail-sor-f41.google.com
-Sent timestamp: 2026-02-13T10:21:27+0200
-Delivery time:  13 seconds (direct Gmail-to-Gmail, no relay)
-Interface used: Gmail Web (CA prefix in Message-ID)
-Claimed address: Eastland Office Park, Bentel Ave, Boksburg, 1459
-Claimed company: Attaining Consultancy
 
----
+| Type | Value |
+|------|-------|
+| Sender Email | attainingconsultancyportia@gmail.com |
+| WhatsApp Number | 065 515 0058 |
+| Source IP | 209.85.220.41 |
+| Sending Host | mail-sor-f41.google.com |
+| Message-ID | CABj7Te-dJ7-4k-E6-3QDcFrKVuzvBGC2NMVXx9qcBDbzip989A@mail.gmail.com |
+| Sent Timestamp | 2026-02-13T10:21:27+0200 |
+| Delivery Time | 13 seconds (direct Gmail-to-Gmail) |
+| Sender Interface | Gmail Web Browser (CA prefix) |
+| Claimed Company | Attaining Consultancy |
+| Claimed Address | Eastland Office Park, Bentel Ave, Boksburg, 1459 |
+| Subject Line | Contact via the resume for "Sphamandla Mgobhozi" |
+```
 
-## Email Flow Diagram
-Attacker Gmail Account | v Google SMTP (209.85.220.41) | v Gmail MX Servers | v Victim Inbox | v WhatsApp Data Harvesting Attempt
+---## Email Flow Diagram
+
+​```
+Attacker Gmail Account (attainingconsultancyportia@gmail.com)
+          |
+          ▼
+  Google SMTP Outbound Relay
+  (mail-sor-f41.google.com / 209.85.220.41)
+          |
+          ▼
+    Gmail MX Servers (mx.google.com)
+          |
+          ▼
+     Victim Inbox (sphah001@gmail.com)
+          |
+          ▼
+  WhatsApp Data Harvesting Attempt
+  (065 515 0058 — document collection)
+          |
+          ▼
+  [Secondary Stage] Document Fraud Facilitation
+  (ITC/Clearance "assistance" hook)
 
 ---
 
 ## Detection Engineering
 
 ### Splunk SPL
+```spl
+```
+index=email
+| where like(sender, "%@gmail.com")
+| search subject="*resume*" OR subject="*cv*" OR subject="*job*"
+| search body="*WhatsApp*" OR body="*identity document*" OR body="*clearance*" OR body="*ITC*"
+| search body="*forward*" OR body="*send documents*" OR body="*today*" OR body="*urgently*"
+| eval RiskScore=case(
+    match(body, "ITC") AND match(body, "WhatsApp"), "HIGH",
+    match(body, "identity document"), "MEDIUM",
+    true(), "LOW"
+  )
+| where RiskScore="HIGH"
+| stats count by sender, subject, recipient, RiskScore
+| sort -count
+```
+```
+```
+```
+Sender Email: attainingconsultancyportia@gmail.com WhatsApp Number: 065 515 0058 Subject: Contact via...
+
 Microsoft Sentinel (kql)
 EmailEvents
 | where SenderFromAddress endswith "@gmail.com"
@@ -198,8 +279,36 @@ Key SOC Takeaways
 •TrustedM/DMARC passing does NOT equal legitimacy.
 •Trusted webmail infrastructure is frequently abused.
 •Employment scams often avoid malicious links and rely purely on human manipulation.
-•Detection requires content correlation + sender reputation.
+•Detection requires content correlation + sender reputation
 
+## Tools Used
+
+| Tool | Purpose |
+|------|---------|
+| Gmail Header Analyzer | Email header parsing and timeline forensics |
+| MXToolbox | SPF/DKIM/DMARC record lookup and validation |
+| AbuseIPDB | Source IP reputation check (209.85.220.41) |
+| VirusTotal | IP and domain reputation analysis |
+| MITRE ATT&CK Navigator | Technique mapping and tactic identification |
+| Microsoft Sentinel (KQL) | Detection rule development |
+| Splunk (SPL) | Detection rule development |
+| GitHub | Case study documentation and version control |
+
+## Lessons Learned
+
+- Employment scams increasingly avoid malicious links entirely, relying on 
+  pure social engineering to bypass technical controls
+- Standard email authentication (SPF/DKIM/DMARC) is insufficient to detect 
+  human-impersonation attacks — all 5 controls passed on a fraudulent email
+- DMARC `p=NONE` is a systemic weakness exploited by attackers who 
+  specifically target consumer webmail providers
+- Job portal scraping enables targeted spearphishing at scale — attackers 
+  can personalise hundreds of emails using publicly available CV data
+- Detection rules must correlate multiple signals: sender reputation + 
+  content keywords + urgency indicators, not authentication results alone
+- Security awareness training remains the highest-impact control against 
+  this attack vector — no technical control stopped this email
+  
 Author
 Sphamandla Mgobhozi
 Aspiring SOC Analyst
