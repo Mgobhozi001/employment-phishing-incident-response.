@@ -1,0 +1,8 @@
+### Splunk SPL
+
+```spl
+index=email
+| where like(sender,"%@gmail.com")
+| search ("job offer" OR "employment" OR "resume" OR "interview")
+| search ("whatsapp" OR "identity document" OR "clearance" OR "ITC")
+| stats count by sender, subject, recipient
